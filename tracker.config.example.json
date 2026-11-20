@@ -1,0 +1,8 @@
+{
+  "ownerEmail": "owner@example.com",
+  "workerName": "my-bug-tracker",
+  "accountId": "YOUR_CLOUDFLARE_ACCOUNT_ID",
+  "databaseName": "my-bug-tracker-db",
+  "databaseId": "YOUR_D1_DATABASE_ID",
+  "publicUrl": "https://my-bug-tracker.YOUR_SUBDOMAIN.workers.dev"
+}

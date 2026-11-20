@@ -1,0 +1,42 @@
+[
+  {
+    "id": "DEMO-001",
+    "kind": "problems",
+    "area": "Dashboard",
+    "title": "Sample: long titles wrap incorrectly",
+    "severity": "Medium",
+    "problem": "A fictional dashboard clips long titles on narrow screens.",
+    "why": "Users should be able to read the entire title.",
+    "fix": "Allow titles to wrap.",
+    "expected": "The full title is visible."
+  },
+  {
+    "id": "DEMO-002",
+    "kind": "flows",
+    "area": "Navigation",
+    "title": "Sample: add a clear filters action",
+    "severity": "Low",
+    "current": "Filters are cleared individually.",
+    "how": "Add a clear filters button.",
+    "advantages": "Fewer clicks when starting a new search."
+  },
+  {
+    "id": "DEMO-003",
+    "kind": "untested",
+    "area": "Search",
+    "title": "Sample: test search with no matches",
+    "severity": "Low",
+    "what": "Search for a fictional item that does not exist.",
+    "reason": "Check the empty state.",
+    "expected": "A helpful empty-state message appears."
+  },
+  {
+    "id": "DEMO-004",
+    "kind": "deliverables",
+    "area": "Documentation",
+    "title": "Sample: publish a quick-start guide",
+    "severity": "Medium",
+    "what": "Write a short guide for a fictional demo project.",
+    "needed": "Installation steps and example workflows."
+  }
+]

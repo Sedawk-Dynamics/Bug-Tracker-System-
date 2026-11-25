@@ -65,6 +65,8 @@ Existing passwords keep working. Everyone has to sign in again.
 
 ## Accounts
 
+The owner signs in and uses `/admin/requests` (Manage access) to add people, create setup links, remove access and approve requests. Everyone else can edit items but cannot manage access. The commands below do the same from a terminal.
+
 Create or reset an account, which prints a private 24-hour link for choosing a password:
 
 ```sh
@@ -77,7 +79,7 @@ Disable an account and end its sessions:
 docker exec CONTAINER node scripts/editor-access.mjs person@example.com --disable
 ```
 
-Anyone who can reach the site can view active items, so do not store confidential information in them. Account emails and deleted items are shown only to signed-in users. Visitors can request edit access at `/request-access`. The owner approves requests at `/admin/requests` and shares the setup link privately; no email is sent. Every account can edit all items.
+Anyone who can reach the site can view active items, so do not store confidential information in them. Account emails and deleted items are shown only to signed-in users. Visitors can request edit access at `/request-access`. The owner approves requests there and shares the setup link privately; no email is sent. Every account can edit all items.
 
 Sign-in attempts are limited by visitor address, which comes from Traefik's `X-Forwarded-For` header. Do not publish port 3000 directly.
 

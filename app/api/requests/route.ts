@@ -35,6 +35,7 @@ export async function POST(req:Request){
   await env.DB.prepare("UPDATE access_requests SET status='declined',reviewed_at=?,reviewed_by=? WHERE email=? AND status='pending'").bind(new Date().toISOString(),user!.email,email).run();
   return json({ok:true});
  }
+ if(request.status!=='pending')return json({error:'Only pending requests can be approved. Use People with access to add someone.'},409);
  const secret=token();
  await env.DB.batch([
   env.DB.prepare('INSERT INTO auth_users(email,setup_hash,setup_expires) VALUES(?,?,?) ON CONFLICT(email) DO UPDATE SET setup_hash=excluded.setup_hash,setup_expires=excluded.setup_expires,disabled=0').bind(email,digest(secret),Date.now()+86400000),

@@ -57,3 +57,6 @@ yarn-error.log*
 *.db-wal
 *.sql
 !/db/*.sql
+/findings.json
+/items.json
+/deleted.json

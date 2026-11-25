@@ -1,7 +1,5 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
+const nextConfig: NextConfig = { output: 'standalone', poweredByHeader: false, images: { unoptimized: true } };
 
 export default nextConfig;

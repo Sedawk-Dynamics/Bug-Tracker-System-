@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS auth_users (email TEXT PRIMARY KEY NOT NULL,password TEXT,disabled INTEGER NOT NULL DEFAULT 0,setup_hash TEXT,setup_expires INTEGER);
+CREATE TABLE IF NOT EXISTS auth_sessions (hash TEXT PRIMARY KEY NOT NULL,email TEXT NOT NULL REFERENCES auth_users(email),expires INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS auth_sessions_email ON auth_sessions(email);
+CREATE TABLE IF NOT EXISTS auth_limits (key TEXT PRIMARY KEY NOT NULL,bucket INTEGER NOT NULL,count INTEGER NOT NULL);

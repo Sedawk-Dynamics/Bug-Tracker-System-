@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.env*
+storage
+private
+outputs
+*.db*
+*.sql
+!db/*.sql

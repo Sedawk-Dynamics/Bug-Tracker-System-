@@ -1,35 +1,30 @@
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-import './sites-env.mjs';
 
-const base = new URL(process.env.TEST_BASE_URL || 'http://127.0.0.1:8787');
-assert(['localhost','127.0.0.1'].includes(base.hostname), 'Tests only run against a local Worker.');
+const base = new URL(process.env.TEST_BASE_URL || 'http://127.0.0.1:3000');
+assert(['localhost','127.0.0.1'].includes(base.hostname), 'Tests only run against a local server.');
 const email = `items-test-${randomUUID()}@example.invalid`;
 const session = randomBytes(32).toString('hex');
 const hash = createHash('sha256').update(session).digest('hex');
 const ids = [];
 const deletedIds = [];
-function sql(command){
- const result=spawnSync(process.execPath,['--import','./scripts/sites-env.mjs','./node_modules/wrangler/bin/wrangler.js','d1','execute','DB','--local','--config','dist/server/wrangler.json','--persist-to','.wrangler/state','--command',command],{encoding:'utf8'});
- assert.equal(result.status,0,`Local fixture SQL failed: ${result.stderr}`);
-}
-async function request(method,body,{authenticated=true,origin=base.origin,deleted=false}={},attempt=0){
+const db = new DatabaseSync(process.env.DATABASE_PATH || './storage/tracker.db');
+db.exec('PRAGMA busy_timeout=5000');
+function sql(command){db.exec(command)}
+async function request(method,body,{authenticated=true,origin=base.origin,deleted=false}={}){
  const response=await fetch(new URL(deleted?'/api/items?deleted=1':'/api/items',base),{method,headers:{'Content-Type':'application/json',Origin:origin,...(authenticated?{Cookie:`__Host-tracker=${session}`}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
  const text=await response.text();
- // Local Wrangler may restart while its D1 fixture command releases resources.
- if(response.status===503&&text.includes('restarted mid-request')&&attempt<3){
-  await new Promise(resolve=>setTimeout(resolve,500));
-  return request(method,body,{authenticated,origin,deleted},attempt+1);
- }
  return {status:response.status,data:JSON.parse(text)};
 }
 try{
  sql(`INSERT INTO auth_users (email,disabled) VALUES ('${email}',0); INSERT INTO auth_sessions (hash,email,expires) VALUES ('${hash}','${email}',${Date.now()+600000});`);
  const sample={id:`NEW-${randomUUID()}`,title:'Local integration fixture',area:'Tests',kind:'problems',status:'Open',severity:'Medium',owner:'',notes:'',problem:'Test details',fix:'Verify persistence'};
  ids.push(sample.id);
+ assert.equal((await request('GET',undefined,{authenticated:false})).status,401);
+ assert.equal((await fetch(base,{redirect:'manual'})).status,307);
  assert.equal((await request('POST',sample,{authenticated:false})).status,401);
  assert.equal((await request('PUT',sample,{authenticated:false})).status,401);
  assert.equal((await request('POST',sample,{origin:'https://example.invalid'})).status,403);

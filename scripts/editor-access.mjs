@@ -1,10 +1,19 @@
-import fs from 'node:fs';import {randomBytes,createHash} from 'node:crypto';import {execFileSync} from 'node:child_process';
-const remote=process.argv.includes('--remote');
-const {readSettings}=await import('./settings.mjs');
-const base=remote?readSettings(true).publicUrl:'http://127.0.0.1:8787';
-const parsed=new URL(base);if(remote&&(parsed.protocol!=='https:'||parsed.hostname.includes('your_subdomain')))throw new Error('Set publicUrl to your deployed HTTPS URL.');
-const email=process.argv[2]?.trim().toLowerCase();if(!email||!/^[-a-z0-9._+]+@[-a-z0-9.]+\.[a-z]+$/.test(email))throw new Error('Provide a valid editor email.');
-fs.mkdirSync('outputs',{recursive:true});const disable=process.argv.includes('--disable');const secret=randomBytes(32).toString('hex'),hash=createHash('sha256').update(secret).digest('hex');
-const sql=disable?`UPDATE auth_users SET disabled=1,setup_hash=NULL WHERE email='${email}'; DELETE FROM auth_sessions WHERE email='${email}';`:`INSERT INTO auth_users(email,setup_hash,setup_expires) VALUES('${email}','${hash}',${Date.now()+86400000}) ON CONFLICT(email) DO UPDATE SET setup_hash=excluded.setup_hash,setup_expires=excluded.setup_expires,disabled=0;`;
-const safe=email.replace(/[^a-z0-9]/g,'-');const sqlFile=`outputs/editor-${safe}.sql`;fs.writeFileSync(sqlFile,sql);execFileSync(process.execPath,['./node_modules/wrangler/bin/wrangler.js','d1','execute','DB',remote?'--remote':'--local','--config',remote?'cloudflare/wrangler.json':'dist/server/wrangler.json',...(!remote?['--persist-to','.wrangler/state']:[]),'--file',sqlFile,'--yes'],{stdio:'pipe'});
-if(!disable){const url=new URL('/setup',base).href+'#email='+encodeURIComponent(email)+'&token='+secret;fs.writeFileSync(`outputs/setup-${safe}.html`,`<!doctype html><html><meta name="referrer" content="no-referrer"><title>Editor password setup</title><body style="font:18px system-ui;padding:40px"><h1>Set your tracker password</h1><p>Account: ${email}</p><p>This private, single-use link expires in 24 hours. Share it only with this account owner.</p><p><a href="${url}">Choose your password</a></p><p>After setting your password, delete this local setup file.</p></body></html>`);console.log(`Setup file created: outputs/setup-${safe}.html (valid for 24 hours)`)}else console.log('Editor disabled and sessions revoked.');
+import { DatabaseSync } from 'node:sqlite';
+import { randomBytes, createHash } from 'node:crypto';
+
+const email = process.argv[2]?.trim().toLowerCase();
+const disable = process.argv.includes('--disable');
+if (!email || !/^[-a-z0-9._+]+@[-a-z0-9.]+\.[a-z]+$/.test(email)) throw new Error('Provide a valid editor email.');
+if (!process.env.PUBLIC_URL) throw new Error('Set PUBLIC_URL.');
+const db = new DatabaseSync(process.env.DATABASE_PATH || './storage/tracker.db');
+db.exec('PRAGMA busy_timeout=5000');
+if (disable) {
+  db.prepare('UPDATE auth_users SET disabled=1,setup_hash=NULL WHERE email=?').run(email);
+  db.prepare('DELETE FROM auth_sessions WHERE email=?').run(email);
+  console.log('Editor disabled and sessions revoked.');
+} else {
+  const secret = randomBytes(32).toString('hex');
+  db.prepare('INSERT INTO auth_users(email,setup_hash,setup_expires) VALUES(?,?,?) ON CONFLICT(email) DO UPDATE SET setup_hash=excluded.setup_hash,setup_expires=excluded.setup_expires,disabled=0')
+    .run(email, createHash('sha256').update(secret).digest('hex'), Date.now() + 86400000);
+  console.log('Private link, valid 24 hours:\n' + new URL('/setup', process.env.PUBLIC_URL).href + '#email=' + encodeURIComponent(email) + '&token=' + secret);
+}

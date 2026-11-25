@@ -48,3 +48,12 @@ yarn-error.log*
 /tracker.config.json
 /cloudflare/wrangler.json
 *.zip
+
+# Private data: this repository is public, never commit it
+/storage/
+/private/
+*.db
+*.db-shm
+*.db-wal
+*.sql
+!/db/*.sql

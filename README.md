@@ -1,6 +1,6 @@
 # Full-stack Bug Tracker
 
-A private, login-only bug tracker. It runs as a Next.js app in Docker and stores its data in one SQLite file. This branch is set up for Dokploy; the `main` branch is the Cloudflare version.
+A bug tracker that anyone with the link can view and only approved accounts can edit. It runs as a Next.js app in Docker and stores its data in one SQLite file. This branch is set up for Dokploy; the `main` branch is the Cloudflare version.
 
 **Keep real data out of this repository.** `data/findings.json` contains fictional demo items only. Real items, database files and exports belong on the server's private volume or in the ignored `private/` folder.
 
@@ -75,7 +75,7 @@ Disable an account and end its sessions:
 docker exec CONTAINER node scripts/editor-access.mjs person@example.com --disable
 ```
 
-Visitors can request access at `/request-access`. The owner approves requests at `/admin/requests` and shares the setup link privately; no email is sent. Every account can view and edit all items.
+Anyone who can reach the site can view active items, so do not store confidential information in them. Account emails and deleted items are shown only to signed-in users. Visitors can request edit access at `/request-access`. The owner approves requests at `/admin/requests` and shares the setup link privately; no email is sent. Every account can edit all items.
 
 Sign-in attempts are limited by visitor address, which comes from Traefik's `X-Forwarded-For` header. Do not publish port 3000 directly.
 

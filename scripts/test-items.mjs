@@ -23,8 +23,8 @@ try{
  sql(`INSERT INTO auth_users (email,disabled) VALUES ('${email}',0); INSERT INTO auth_sessions (hash,email,expires) VALUES ('${hash}','${email}',${Date.now()+600000});`);
  const sample={id:`NEW-${randomUUID()}`,title:'Local integration fixture',area:'Tests',kind:'problems',status:'Open',severity:'Medium',owner:'',notes:'',problem:'Test details',fix:'Verify persistence'};
  ids.push(sample.id);
- assert.equal((await request('GET',undefined,{authenticated:false})).status,401);
- assert.equal((await fetch(base,{redirect:'manual'})).status,307);
+ const publicList=await request('GET',undefined,{authenticated:false});assert.equal(publicList.status,200);assert(publicList.data.every(item=>item.updatedBy===''));
+ assert.equal((await fetch(base,{redirect:'manual'})).status,200);
  assert.equal((await request('POST',sample,{authenticated:false})).status,401);
  assert.equal((await request('PUT',sample,{authenticated:false})).status,401);
  assert.equal((await request('POST',sample,{origin:'https://example.invalid'})).status,403);

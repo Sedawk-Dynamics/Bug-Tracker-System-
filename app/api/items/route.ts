@@ -14,7 +14,8 @@ function fromRow(row:Stored){return {...JSON.parse(row.payload),id:row.id,kind:r
 export async function GET(request:Request) {
  const trash=new URL(request.url).searchParams.get('deleted')==='1';
  const user=await getEditor();
- if(!user||!canEditTracker(user))return Response.json({error:'Sign in to open the tracker.'},{status:401,headers:{'Cache-Control':'no-store'}});
+ const canEdit=canEditTracker(user);
+ if(trash&&!canEdit)return Response.json({error:'Sign in to view deleted items.'},{status:401,headers:{'Cache-Control':'no-store'}});
 
  const [{results}, {results:custom}, {results:deleted}] = await Promise.all([
   env.DB.prepare('SELECT * FROM updates').all<Stored>(),
@@ -27,7 +28,7 @@ export async function GET(request:Request) {
   const row=saved.get(item.id);
   return {...item,status:'Open',owner:'',notes:'',...(row?JSON.parse(row.payload):{}),version:row?.version||0,updatedAt:row?.updated_at||'',updatedBy:row?.updated_by||''};
  });
- return Response.json([...originalItems,...custom.map(fromRow)].filter(item=>trash?removed.has(item.id):!removed.has(item.id)).map(item=>({...item,status:normalizeStatus(item.status),...(trash?{deletedAt:deleted.find(row=>row.id===item.id)?.deleted_at,deletedBy:deleted.find(row=>row.id===item.id)?.deleted_by}:{})})).sort((a,b)=>trash?String(b.deletedAt).localeCompare(String(a.deletedAt)):0),{headers:{'Cache-Control':'no-store'}});
+ return Response.json([...originalItems,...custom.map(fromRow)].filter(item=>trash?removed.has(item.id):!removed.has(item.id)).map(item=>({...item,status:normalizeStatus(item.status),...(canEdit?{}:{updatedBy:''}),...(trash?{deletedAt:deleted.find(row=>row.id===item.id)?.deleted_at,deletedBy:deleted.find(row=>row.id===item.id)?.deleted_by}:{})})).sort((a,b)=>trash?String(b.deletedAt).localeCompare(String(a.deletedAt)):0),{headers:{'Cache-Control':'no-store'}});
 }
 
 async function write(request:Request, creating:boolean){

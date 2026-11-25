@@ -28,7 +28,7 @@ function open() {
   mkdirSync(dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
   db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;');
-  for (const name of ['updates', 'auth', 'requests', 'items', 'deletions'])
+  for (const name of ['updates', 'auth', 'requests', 'items', 'deletions', 'revision'])
     db.exec(readFileSync(join(process.cwd(), 'db', `${name}-schema.sql`), 'utf8'));
   return new Database(db);
 }

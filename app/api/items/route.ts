@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { env } from '../../../lib/env';
 import { publicOrigin } from '../../../lib/request';
 import { canEditTracker } from '../../../lib/permissions';
@@ -11,12 +12,7 @@ const fields = ['title','area','severity','problem','why','fix','expected','curr
 type Stored = {id:string; kind:string; payload:string; version:number; updated_at:string; updated_by:string};
 function fromRow(row:Stored){return {...JSON.parse(row.payload),id:row.id,kind:row.kind,version:row.version,updatedAt:row.updated_at,updatedBy:row.updated_by}}
 
-export async function GET(request:Request) {
- const trash=new URL(request.url).searchParams.get('deleted')==='1';
- const user=await getEditor();
- const canEdit=canEditTracker(user);
- if(trash&&!canEdit)return Response.json({error:'Sign in to view deleted items.'},{status:401,headers:{'Cache-Control':'no-store'}});
-
+async function listItems(trash:boolean,canEdit:boolean){
  const [{results}, {results:custom}, {results:deleted}] = await Promise.all([
   env.DB.prepare('SELECT * FROM updates').all<Stored>(),
   env.DB.prepare('SELECT * FROM custom_items ORDER BY updated_at DESC, id').all<Stored>(),
@@ -28,7 +24,34 @@ export async function GET(request:Request) {
   const row=saved.get(item.id);
   return {...item,status:'Open',owner:'',notes:'',...(row?JSON.parse(row.payload):{}),version:row?.version||0,updatedAt:row?.updated_at||'',updatedBy:row?.updated_by||''};
  });
- return Response.json([...originalItems,...custom.map(fromRow)].filter(item=>trash?removed.has(item.id):!removed.has(item.id)).map(item=>({...item,status:normalizeStatus(item.status),...(canEdit?{}:{updatedBy:''}),...(trash?{deletedAt:deleted.find(row=>row.id===item.id)?.deleted_at,deletedBy:deleted.find(row=>row.id===item.id)?.deleted_by}:{})})).sort((a,b)=>trash?String(b.deletedAt).localeCompare(String(a.deletedAt)):0),{headers:{'Cache-Control':'no-store'}});
+ return [...originalItems,...custom.map(fromRow)].filter(item=>trash?removed.has(item.id):!removed.has(item.id)).map(item=>({...item,status:normalizeStatus(item.status),...(canEdit?{}:{updatedBy:''}),...(trash?{deletedAt:deleted.find(row=>row.id===item.id)?.deleted_at,deletedBy:deleted.find(row=>row.id===item.id)?.deleted_by}:{})})).sort((a,b)=>trash?String(b.deletedAt).localeCompare(String(a.deletedAt)):0);
+}
+
+// The full list is built once per change, then shared by everyone who asks for it.
+const boot=randomUUID();
+const cached=new Map<string,{version:string;data:Promise<Buffer>}>();
+function cachedList(version:string,canEdit:boolean){
+ const key=canEdit?'editor':'visitor', hit=cached.get(key);
+ if(hit?.version===version)return hit.data;
+ const data=listItems(false,canEdit).then(items=>Buffer.from(JSON.stringify(items)));
+ cached.set(key,{version,data});
+ data.catch(()=>{if(cached.get(key)?.data===data)cached.delete(key)});
+ return data;
+}
+
+export async function GET(request:Request) {
+ const params=new URL(request.url).searchParams, trash=params.get('deleted')==='1';
+ const canEdit=canEditTracker(await getEditor());
+ if(trash){
+  if(!canEdit)return Response.json({error:'Sign in to view deleted items.'},{status:401,headers:{'Cache-Control':'no-store'}});
+  return Response.json(await listItems(true,true),{headers:{'Cache-Control':'no-store'}});
+ }
+ // Read before the items, so a change made meanwhile is picked up by the next request.
+ const revision=await env.DB.prepare('SELECT value FROM revision').first<{value:number}>();
+ const version=[boot,revision?.value??0,canEdit?'e':'v'].join('.');
+ const headers={'Cache-Control':'no-store','X-Tracker-Version':version};
+ if(params.get('since')===version)return new Response(null,{status:204,headers});
+ return new Response(await cachedList(version,canEdit) as BodyInit,{headers:{...headers,'Content-Type':'application/json'}});
 }
 
 async function write(request:Request, creating:boolean){

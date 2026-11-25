@@ -12,6 +12,8 @@ A bug tracker that anyone with the link can view and only approved accounts can 
 | `OWNER_EMAIL` | `owner@example.com` | The only account that can approve access requests |
 | `DATABASE_PATH` | `/data/tracker.db` | Database file, created automatically |
 | `SEED_PATH` | `/data/findings.json` | Private file of original items. Leave unset to show the demo items |
+| `IMPORT_FROM` | `https://old-site.example` | Optional. On the first start, copies the public items of an old tracker site. Needs `DATABASE_PATH=/data/live.db` and `SEED_PATH=/data/findings.json`. Remove afterwards |
+| `CREATE_OWNER_LINK` | `true` | Optional. Prints a private owner setup link in the logs while the owner has no password. Remove afterwards |
 
 ## Deploy on Dokploy
 

@@ -1,7 +1,7 @@
 // Copies the public items of an old tracker site into a new data folder. Never overwrites existing files.
 // Accounts, passwords, access requests and deleted items are not public, so they are not copied.
 import { DatabaseSync } from 'node:sqlite';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const [site, folder] = process.argv.slice(2);
@@ -29,7 +29,10 @@ const added = items.filter(i => i.id.startsWith('NEW-')), originals = items.filt
 const edited = originals.filter(i => i.version > 0);
 
 mkdirSync(folder, { recursive: true });
-const db = new DatabaseSync(target);
+// Built under temporary names and renamed at the end, so an interrupted import never looks finished.
+const tempDb = target + '.importing', tempSeed = seedTarget + '.importing';
+for (const temp of [tempDb, tempDb + '-journal', tempSeed]) rmSync(temp, { force: true });
+const db = new DatabaseSync(tempDb);
 try {
   for (const name of ['updates', 'auth', 'requests', 'items', 'deletions']) db.exec(readFileSync(join('db', `${name}-schema.sql`), 'utf8'));
   db.exec('BEGIN');
@@ -39,12 +42,14 @@ try {
   for (const i of edited) update.run(i.id, payload(i), i.version, i.updatedAt || '', i.updatedBy || '');
   db.exec('COMMIT');
   const seed = originals.map(i => Object.fromEntries(Object.entries(i).filter(([key]) => !runtime.includes(key))));
-  writeFileSync(seedTarget, JSON.stringify(seed, null, 2), { flag: 'wx', mode: 0o600 });
+  writeFileSync(tempSeed, JSON.stringify(seed, null, 2), { flag: 'wx', mode: 0o600 });
   db.close();
+  renameSync(tempSeed, seedTarget);
+  renameSync(tempDb, target);
   console.log(`Original items: ${originals.length} (${edited.length} edited)\nAdded items: ${added.length}\nTotal copied: ${items.length}`);
   console.log(statuses.map(s => `${s}: ${items.filter(i => i.status === s).length}`).join('\n'));
 } catch (error) {
-  db.close();
-  rmSync(target, { force: true });
+  if (db.isOpen) db.close();
+  for (const temp of [tempDb, tempSeed]) rmSync(temp, { force: true });
   throw error;
 }
